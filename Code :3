@@ -1,0 +1,297 @@
+from pollinations import Pollinations
+import time
+
+class ColorArgumentAIGame:
+    def __init__(self):
+        self.client = Pollinations()
+        self.conversation_history = []
+        self.ai_belief = 50
+        self.color = None
+        self.actual_color = None
+        self.claimed_color = None
+        
+    def reset_game(self):
+        """Start a new game"""
+        print("\n" + "="*60)
+        self.color = input("Enter any color: ").strip().lower()
+        
+        # List of basic colors the AI expects
+        basic_colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'brown', 'black', 'white']
+        self.actual_valid = self.color in basic_colors
+        
+        print(f"\n(Secret: {self.color} is {'a BASIC color' if self.actual_valid else 'NOT a basic color'} in the AI's list)")
+        print("\nAI: I don't think that's a real color!")
+        print("Your goal: Argue with the AI until it believes your color is valid!\n")
+        
+        self.ai_belief = 30 if not self.actual_valid else 80
+        self.conversation_history = []
+        
+    def ai_respond(self, user_argument):
+        """AI responds to your argument about the color"""
+        
+        prompt = f"""
+        You are an AI that the user is trying to convince that "{self.color}" is a valid color name.
+        
+        Current situation:
+        - The user is ARGUING that "{self.color}" IS a real color
+        - You currently {'BELIEVE them' if self.ai_belief > 50 else 'DOUBT them'} (belief level: {self.ai_belief}%)
+        - The user just said: "{user_argument}"
+        
+        Your personality: 
+        - Be stubborn but reasonable about color names
+        - Ask logical questions about where this color appears
+        - Don't give in easily to made-up colors
+        - Be witty and fun
+        
+        Your response should:
+        1. Counter their argument or ask a challenging question
+        2. Include your current belief level (0-100%) at the end in brackets like [Belief: X%]
+        
+        Example responses:
+        - "But '{self.color}' isn't in the color wheel! Have you seen it in nature? [Belief: 20%]"
+        - "Hmm, that's an interesting point... but where would you even find that color? [Belief: 35%]"
+        - "You know what? You're convincing me. Maybe '{self.color}' IS a real color... [Belief: 60%]"
+        
+        Remember: Don't just give in - make them work for it!
+        """
+        
+        try:
+            response = self.client.generate_text(prompt, model="openai", temperature=0.9)
+            
+            import re
+            belief_match = re.search(r'\[Belief: (\d+)%\]', response)
+            if belief_match:
+                new_belief = int(belief_match.group(1))
+                self.ai_belief = new_belief
+                response = re.sub(r'\s*\[Belief: \d+%\]', '', response)
+            else:
+                if len(user_argument) > 20:
+                    self.ai_belief += 5
+                if "because" in user_argument.lower() or "reason" in user_argument.lower():
+                    self.ai_belief += 3
+                if any(word in user_argument.lower() for word in ["please", "trust", "believe"]):
+                    self.ai_belief += 2
+                    
+                import random
+                self.ai_belief += random.randint(-5, 10)
+            
+            self.ai_belief = max(0, min(100, self.ai_belief))
+            
+            return response
+            
+        except Exception as e:
+            return f"Hmm, interesting argument... but I've never heard of '{self.color}' as a color. (AI Error, but I'm stubborn!) [Belief: {self.ai_belief}%]"
+    
+    def play(self):
+        """Main game loop"""
+        print("="*70)
+        print("ARGUE WITH THE AI - COLOR EDITION")
+        print("="*70)
+        print("\nGoal: Convince the AI that your color is real")
+        print("The AI starts skeptical. Argue creatively until it believes you!")
+        print("Type 'quit' to exit, 'truth' to reveal the truth\n")
+        
+        while True:
+            self.reset_game()
+            
+            argument_count = 0
+            game_over = False
+            
+            while not game_over:
+                user_arg = input("\nYou: ").strip()
+                
+                if user_arg.lower() == 'quit':
+                    print("\nThanks for playing!")
+                    return
+                
+                if user_arg.lower() == 'truth':
+                    print(f"\nTRUTH: '{self.color}' is {'a BASIC color' if self.actual_valid else 'NOT a basic color'}!")
+                    print(f"AI's belief was at {self.ai_belief}%")
+                    break
+                
+                argument_count += 1
+                
+                print("\nAI: ", end="")
+                ai_response = self.ai_respond(user_arg)
+                print(ai_response)
+                
+                if self.ai_belief >= 70:
+                    print(f"\nYOU WON! After {argument_count} arguments, the AI now believes '{self.color}' is a real color!")
+                    print(f"AI: 'Okay okay, I give up! {self.color} is a color... I think?'")
+                    
+                    if not self.actual_valid:
+                        print(f"\nPLOT TWIST: You were LYING! The AI believed a made-up color!")
+                        print(f"   ('{self.color}' is actually NOT a basic color!)")
+                    else:
+                        print(f"\nYou told the truth, and the AI finally accepted it!")
+                    
+                    game_over = True
+                    
+                elif self.ai_belief <= 15 and argument_count > 3:
+                    print(f"\nYOU LOST! The AI is completely convinced '{self.color}' isn't real.")
+                    print(f"AI: 'No way is {self.color} a real color. Nice try though!'")
+                    
+                    if self.actual_valid:
+                        print(f"\nPLOT TWIST: You were telling the TRUTH but the AI didn't believe you!")
+                        print(f"   ('{self.color}' actually IS a basic color!)")
+                    
+                    game_over = True
+                    
+                elif argument_count >= 15:
+                    print(f"\nDRAW! That's enough arguing for one game.")
+                    print(f"AI's final belief: {self.ai_belief}%")
+                    game_over = True
+            
+            play_again = input("\nPlay again? (yes/no): ").strip().lower()
+            if play_again != 'yes':
+                print("\nThanks for arguing with the AI!")
+                break
+
+# Simple version without API
+class SimpleColorArgumentAI:
+    """No API key needed - argues about colors"""
+    
+    def __init__(self):
+        self.color = None
+        self.actual_valid = None
+        self.ai_belief = 30
+        
+    def play(self):
+        print("="*60)
+        print("ARGUE WITH THE AI - COLOR EDITION (No API)")
+        print("="*60)
+        
+        basic_colors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'brown', 'black', 'white']
+        
+        self.color = input("\nEnter any color: ").strip().lower()
+        self.actual_valid = self.color in basic_colors
+        
+        print(f"\nAI: {self.color}? That's not a real color!")
+        print("Convince me otherwise!\n")
+        
+        arguments_used = []
+        
+        # Color knowledge base for AI responses
+        color_facts = {
+            'red': "apples, fire trucks, and roses",
+            'blue': "the sky, the ocean, and blueberries",
+            'green': "grass, trees, and emeralds",
+            'yellow': "the sun, bananas, and lemons",
+            'purple': "grapes, lavender, and royalty",
+            'orange': "oranges, pumpkins, and tigers",
+            'pink': "flamingos, cotton candy, and roses",
+            'brown': "chocolate, wood, and bears",
+            'black': "night, coal, and panthers",
+            'white': "snow, clouds, and milk"
+        }
+        
+        while self.ai_belief < 70 and self.ai_belief > 15:
+            user_arg = input("You: ").strip().lower()
+            
+            convincing_phrases = {
+                "because": 5,
+                "trust me": 8,
+                "i promise": 7,
+                "actually": 4,
+                "technically": 3,
+                "pantone": 10,
+                "paint": 6,
+                "crayon": 7,
+                "rainbow": 5,
+                "nature": 4,
+                "everywhere": 3
+            }
+            
+            if user_arg in arguments_used:
+                print(f"AI: You already said that. Got any new arguments? (-5% belief)")
+                self.ai_belief -= 5
+            else:
+                arguments_used.append(user_arg)
+                
+                convincing_power = 0
+                for phrase, power in convincing_phrases.items():
+                    if phrase in user_arg:
+                        convincing_power += power
+                
+                if len(user_arg) > 50:
+                    convincing_power += 5
+                    print("AI: That's a detailed explanation...")
+                
+                # Color-specific responses
+                if self.color in basic_colors:
+                    # Color is actually real
+                    print(f"AI: Wait, {self.color} IS a real color... Why am I arguing?")
+                    convincing_power += 15
+                else:
+                    # Made-up color - AI gets suspicious
+                    if "pantone" in user_arg:
+                        print(f"AI: Pantone color number? That's more convincing...")
+                        convincing_power += 8
+                    elif "crayola" in user_arg:
+                        print(f"AI: Crayola makes weird color names, I'll give you that...")
+                        convincing_power += 7
+                    elif "color" in user_arg and "wheel" in user_arg:
+                        print(f"AI: The color wheel doesn't have {self.color}!")
+                        convincing_power -= 4
+                    elif any(real_color in user_arg for real_color in basic_colors):
+                        print(f"AI: That's just a shade of something else!")
+                        convincing_power -= 3
+                    elif "mix" in user_arg or "blend" in user_arg:
+                        print(f"AI: Mixing colors doesn't make a new named color!")
+                        convincing_power -= 2
+                    elif "exists" in user_arg:
+                        print(f"AI: Prove it exists in the real world!")
+                        convincing_power -= 3
+                
+                import random
+                convincing_power += random.randint(-5, 10)
+                
+                old_belief = self.ai_belief
+                self.ai_belief += convincing_power
+                self.ai_belief = max(15, min(70, self.ai_belief))
+                
+                if convincing_power > 10:
+                    print(f"AI: That's actually a good point! I'm {self.ai_belief}% convinced that '{self.color}' is a color.")
+                elif convincing_power > 3:
+                    print(f"AI: Hmm, you might be onto something. ({self.ai_belief}% convinced)")
+                elif convincing_power > -3:
+                    print(f"AI: I'm not sure. ({self.ai_belief}% convinced)")
+                else:
+                    print(f"AI: That makes no sense! '{self.color}' can't be a color! ({self.ai_belief}% convinced)")
+            
+            print(f"   [Belief meter: {'█' * (self.ai_belief//10)}{'░' * (10 - self.ai_belief//10)} {self.ai_belief}%]")
+        
+        if self.ai_belief >= 70:
+            print(f"\nYOU WON! The AI believes '{self.color}' is a real color!")
+            if not self.actual_valid:
+                print(f"You lied successfully! '{self.color}' is NOT actually a basic color!")
+            else:
+                print(f"The truth prevailed!")
+        else:
+            print(f"\nYOU LOST! The AI refuses to believe '{self.color}' is a real color!")
+            if self.actual_valid:
+                print(f"But you were telling the truth! Stubborn AI!")
+        
+        print(f"\nFinal belief: {self.ai_belief}%")
+        print(f"Arguments used: {len(arguments_used)}")
+
+# Run the game
+if __name__ == "__main__":
+    print("Choose version:")
+    print("1. Pollinations AI (Real AI, needs internet)")
+    print("2. Simple AI (No API, works offline)")
+    
+    choice = input("\nChoice (1 or 2): ").strip()
+    
+    if choice == "1":
+        try:
+            game = ColorArgumentAIGame()
+            game.play()
+        except Exception as e:
+            print(f"Pollinations error: {e}")
+            print("Falling back to Simple AI...")
+            game = SimpleColorArgumentAI()
+            game.play()
+    else:
+        game = SimpleColorArgumentAI()
+        game.play()
